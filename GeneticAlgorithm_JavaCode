@@ -1,0 +1,143 @@
+package geneticalgorithm;
+import java.util.Arrays;
+import java.util.Random;
+import java.util.Scanner;
+public class GeneticAlgorithm {
+    static int chromosomeLength; // Número de genes
+    static int populationSize; // Número de cromosomas por generación
+    static int generations; // Número de generaciones
+    static Random rand = new Random();
+    public static void main(String[] args) {
+        // Pedir valores por consola
+        System.out.println("EL MEJOR PROGRAMADOR:");
+        Scanner scanner = new Scanner(System.in);
+        System.out.print("Introduce el número de genes por cromosoma: ");
+        chromosomeLength = Integer.parseInt(scanner.nextLine());
+        System.out.print("Introduce el tamaño de la población (número de cromosomas): ");
+        populationSize = Integer.parseInt(scanner.nextLine());
+        System.out.print("Introduce el número de generaciones: ");
+        generations = Integer.parseInt(scanner.nextLine());
+        // Crear la población inicial
+        double[][] population = initializePopulation();
+        // Ciclo para generar múltiples generaciones
+        for (int gen = 0; gen < generations; gen++) {
+            // Convertir genes binarios a valores decimales y aplicar fórmula de aptitud
+            double[] fitness = evaluateFitness(population);        
+            // Mostrar la generación actual
+            System.out.println("\nGeneración " + gen + ":");
+            // Mostrar la población con los valores binarios, decimales y aptitud
+            showGeneration(population, fitness);
+            // Calcular y mostrar el promedio y la mediana de la aptitud
+            calculateAndShowStats(fitness);
+            // Ordenar la población según la aptitud
+            double[][] rankedPopulation = rankByFitness(population, fitness);
+            // Cruzamiento para formar la nueva generación
+            double[][] newPopulation = crossover(rankedPopulation);
+            // Mutación
+            mutate(newPopulation);
+            // Reemplazar la población por la nueva
+            population = newPopulation;
+        }
+        scanner.close();
+    }
+    // Inicialización de la población con cromosomas aleatorios
+    public static double[][] initializePopulation() {
+        double[][] population = new double[populationSize][chromosomeLength];
+        for (int i = 0; i < populationSize; i++) {
+            for (int j = 0; j < chromosomeLength; j++) {
+                population[i][j] = rand.nextInt(2); // Generar aleatorio entre 0 y 1
+            }
+        }
+        return population;
+    }
+    // Conversión de genes binarios a decimal y cálculo de aptitud
+    public static double[] evaluateFitness(double[][] population) {
+        double[] fitness = new double[populationSize];
+        for (int i = 0; i < populationSize; i++) {
+            double decimalValue = binaryToDecimal(population[i]);
+            fitness[i] = fitnessFunction(decimalValue);
+        }
+        return fitness;
+    }
+    // Fórmula de aptitud: ((x+6)^2) + (x*14) - 18
+    public static double fitnessFunction(double x) {
+        //return Math.pow((x + 6), 2) + (x * 14) - 18;
+        return Math.pow(x,2)-3+(6*x)+13;
+    }
+    // Conversión de un array de genes binarios a un valor decimal
+    public static double binaryToDecimal(double[] chromosome) {
+        double value = 0;
+        boolean isNegative = chromosome[0] == 1;
+        for (int i = 1; i < chromosomeLength; i++) {
+            value += chromosome[i] * Math.pow(2, chromosomeLength - 1 - i);
+        }
+        if (chromosome[chromosomeLength - 1] == 1) value += 0.5; // Valor especial "0.5"
+        return isNegative ? -value : value;
+    }
+    // Mostrar la generación con valores binarios, decimales y aptitud
+    public static void showGeneration(double[][] population, double[] fitness) {
+        for (int i = 0; i < populationSize; i++) {
+            // Convertir a entero para mostrar como "1" o "0"
+            int[] binaryRepresentation = new int[chromosomeLength];
+            for (int j = 0; j < chromosomeLength; j++) {
+                binaryRepresentation[j] = (int) population[i][j];
+            }
+            System.out.println("Cromosoma " + (i + 1) + ": " + Arrays.toString(binaryRepresentation) +
+                " | Decimal: " + binaryToDecimal(population[i]) +
+                " | Aptitud: " + fitness[i]);
+        }
+    }
+    // Calcular y mostrar el promedio y la mediana de la aptitud
+    public static void calculateAndShowStats(double[] fitness) {
+        double average = Arrays.stream(fitness).average().orElse(0);
+        double median = calculateMedian(fitness);
+        System.out.println("Promedio de aptitud: " + average);
+        System.out.println("Mediana de aptitud: " + median);
+    }
+    // Calcular la mediana de un array
+    public static double calculateMedian(double[] fitness) {
+        double[] sortedFitness = Arrays.copyOf(fitness, fitness.length);
+        Arrays.sort(sortedFitness);
+        int middle = sortedFitness.length / 2;
+        if (sortedFitness.length % 2 == 0) {
+            return (sortedFitness[middle - 1] + sortedFitness[middle]) / 2.0;
+        } else {
+            return sortedFitness[middle];
+        }
+    }
+    // Ordenar la población por aptitud (mejor aptitud es más cercana a 0)
+    public static double[][] rankByFitness(double[][] population, double[] fitness) {
+        double[][] rankedPopulation = Arrays.copyOf(population, population.length);
+        Arrays.sort(rankedPopulation, (chrom1, chrom2) -> Double.compare(
+            fitnessFunction(binaryToDecimal(chrom1)),
+            fitnessFunction(binaryToDecimal(chrom2))
+        ));
+        return rankedPopulation;
+    }
+    // Cruzar los mejores con los peores
+    public static double[][] crossover(double[][] rankedPopulation) {
+        double[][] newPopulation = new double[populationSize][chromosomeLength];
+        for (int i = 0; i < populationSize / 2; i++) {
+            // Cruzar el mejor con el peor (1-8, 2-7, etc.)
+            newPopulation[i] = crossoverChromosomes(rankedPopulation[i], rankedPopulation[populationSize - i - 1]);
+            newPopulation[populationSize - i - 1] = crossoverChromosomes(rankedPopulation[populationSize - i - 1], rankedPopulation[i]);
+        }
+        return newPopulation;
+    }
+    // Cruzar dos cromosomas
+    public static double[] crossoverChromosomes(double[] parent1, double[] parent2) {
+        double[] offspring = new double[chromosomeLength];
+        for (int i = 0; i < chromosomeLength; i++) {
+            offspring[i] = (rand.nextBoolean()) ? parent1[i] : parent2[i]; // Seleccionar genes aleatoriamente de ambos padres
+        }
+        return offspring;
+    }
+    // Mutar un gen aleatorio en cada cromosoma
+    public static void mutate(double[][] population) {
+        for (int i = 0; i < populationSize; i++) {
+            int geneToMutate = rand.nextInt(chromosomeLength); // Elegir un gen aleatorio para mutar
+            population[i][geneToMutate] = (population[i][geneToMutate] == 0) ? 1 : 0;
+        }
+    }
+}
+
